@@ -1,0 +1,5 @@
+altair
+anywidget
+palmerpenguins
+jsonschema
+jupyter
