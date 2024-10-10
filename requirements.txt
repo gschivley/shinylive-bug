@@ -2,3 +2,4 @@ altair
 anywidget
 palmerpenguins
 jsonschema
+fastparquet

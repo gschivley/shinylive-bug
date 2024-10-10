@@ -1,10 +1,8 @@
-from functools import partial
 from pathlib import Path
 
 import altair as alt
 import anywidget
 import pandas as pd
-from pivottablejs import pivot_ui
 from shiny import reactive
 from shiny.express import input, render, ui
 from shiny.types import FileInfo
