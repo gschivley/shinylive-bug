@@ -124,6 +124,7 @@ def chart_total_line(
     color="model",
     shape=None,
     dash=None,
+    legend_selection_fields=None,
     order=None,
     scale="linear",
     width=alt.Step(40),
@@ -145,6 +146,9 @@ def chart_total_line(
         if var is not None:
             _tooltips.append(alt.Tooltip(var))
 
+    # selection_fields = [f for f in legend_selection_fields if f is not None]
+    # selection = alt.selection_point(fields=selection_fields or [], bind="legend")
+
     lines = (
         alt.Chart(data)
         .mark_line(point=dash is None)
@@ -153,7 +157,9 @@ def chart_total_line(
             y=alt.Y("sum(value)"),
             color=color,
             tooltip=_tooltips,
+            # opacity=alt.condition(selection, alt.value(0.8), alt.value(0.2)),
         )
+        # .add_params(selection)
         .properties(width=width, height=height)
         # .interactive()
     )
@@ -167,7 +173,9 @@ def chart_total_line(
                 y=alt.Y("sum(value)"),
                 color=alt.Color(color),
                 tooltip=_tooltips,
+                # opacity=alt.condition(selection, alt.value(0.8), alt.value(0.2)),
             )
+            # .add_params(selection)
             .properties(width=width, height=height)
             # .interactive()
         )
@@ -227,6 +235,7 @@ def parsed_file():
     for col in cat_cols:
         df[col] = df[col].astype("category")
     df["time"] = df["time"].astype("float32")
+    df["year"] = df["year"].astype(str)
     return df
 
 
@@ -327,17 +336,34 @@ def co2_time_data():
         )
 
 
+@reactive.calc
+def r_cap_values():
+    values = {}
+    for col in ["year", "scenario", "region", "type", "capacity_type"]:
+        if parsed_file().empty:
+            options = ["all"]
+        else:
+            options = list(resource_cap_data()[col].unique())
+        values[col] = options
+    return values
+
+
+@reactive.calc
+def r_time_values():
+    values = {}
+    for col in ["year", "scenario", "region", "type"]:
+        if parsed_file().empty:
+            options = ["all"]
+        else:
+            options = list(resource_time_data()[col].unique())
+        values[col] = options
+    return values
+
+
 with ui.nav_panel("Plot resource cap data"):
     with ui.layout_sidebar():
         with ui.sidebar():
-            ui.input_selectize(
-                "r_cap_type",
-                "Capacity type",
-                multiple=True,
-                choices=["Total", "New", "Retired"],
-                selected=["Total", "New", "Retired"],
-                width="125px",
-            )
+
             ui.input_selectize(
                 "r_cap_x_var",
                 "X variable",
@@ -416,20 +442,48 @@ with ui.nav_panel("Plot resource cap data"):
                     "capacity_type",
                     "None",
                 ],
-                selected="None",
+                selected="capacity_type",
                 width="125px",
             )
 
-        # with ui.accordion_panel("Outputs"):
+            @render.ui
+            def r_calc_filters():
+                if not parsed_file().empty:
+                    filters = []
+                    for k, v in r_cap_values().items():
+                        filters.append(
+                            ui.input_selectize(
+                                f"r_cap_{k}",
+                                k,
+                                choices=v,
+                                selected=v,
+                                multiple=True,
+                            )
+                        )
+                    return filters
+
         with ui.navset_card_pill(id="r_cap"):
             with ui.nav_panel("Plot"):
+
+                @reactive.calc
+                def filtered_r_cap_data():
+                    df = resource_cap_data()
+                    df = df.loc[
+                        (df["year"].isin(input.r_cap_year()))
+                        & (df["scenario"].isin(input.r_cap_scenario()))
+                        & (df["region"].isin(input.r_cap_region()))
+                        & (df["capacity_type"].isin(input.r_cap_capacity_type()))
+                        & (df["type"].isin(input.r_cap_type())),
+                        :,
+                    ]
+                    return df
 
                 @render.download(
                     label="Download plot data", filename="resource_capacity_data.csv"
                 )
                 def download_data():
                     yield prep_chart_data(
-                        resource_cap_data(),
+                        filtered_r_cap_data(),
                         x_var=input.r_cap_x_var(),  # input.cap_line_x_var(),
                         col_var=input.r_cap_col_var(),
                         row_var=input.r_cap_row_var(),
@@ -443,13 +497,13 @@ with ui.nav_panel("Plot resource cap data"):
                     if parsed_file().empty:
                         return None
                     data = prep_chart_data(
-                        resource_cap_data(),
+                        filtered_r_cap_data(),
                         x_var=input.r_cap_x_var(),
                         col_var=input.r_cap_col_var(),
                         row_var=input.r_cap_row_var(),
                         color=input.r_cap_color(),
                         dash=input.r_cap_dash(),
-                        cap_types=input.r_cap_type(),
+                        # cap_types=input.r_cap_type(),
                     )
                     chart = chart_total_line(
                         data,
@@ -460,6 +514,10 @@ with ui.nav_panel("Plot resource cap data"):
                         dash=input.r_cap_dash(),
                         height=200,  # * (input.cap_line_height() / 100),
                         width=200,  # * (input.cap_line_width() / 100),
+                        legend_selection_fields=[
+                            input.r_cap_color(),
+                            input.r_cap_dash(),
+                        ],
                     )
                     return chart
 
@@ -467,14 +525,22 @@ with ui.nav_panel("Plot resource cap data"):
 
                 @render.data_frame
                 def show_r_cap_df():
+                    df = resource_cap_data()
+                    df = df.loc[
+                        (df["year"].isin(input.r_cap_year()))
+                        & (df["scenario"].isin(input.r_cap_scenario()))
+                        & (df["region"].isin(input.r_cap_region()))
+                        & (df["type"].isin(input.r_cap_type())),
+                        :,
+                    ]
                     data = prep_chart_data(
-                        resource_cap_data(),
+                        df,
                         x_var=input.r_cap_x_var(),
                         col_var=input.r_cap_col_var(),
                         row_var=input.r_cap_row_var(),
                         color=input.r_cap_color(),
                         dash=input.r_cap_dash(),
-                        cap_types=input.r_cap_type(),
+                        # cap_types=input.r_cap_type(),
                     )
                     return render.DataTable(data, filters=True)
 
@@ -554,15 +620,43 @@ with ui.nav_panel("Plot resource time series data"):
                 width="125px",
             )
 
+            @render.ui
+            def r_time_filters():
+                if not parsed_file().empty:
+                    filters = []
+                    for k, v in r_time_values().items():
+                        filters.append(
+                            ui.input_selectize(
+                                f"r_time_{k}",
+                                k,
+                                choices=v,
+                                selected=v,
+                                multiple=True,
+                            )
+                        )
+                    return filters
+
         with ui.navset_card_pill(id="r_time"):
             with ui.nav_panel("Plot"):
+
+                @reactive.calc
+                def filtered_r_time_data():
+                    df = resource_time_data()
+                    df = df.loc[
+                        (df["year"].isin(input.r_time_year()))
+                        & (df["scenario"].isin(input.r_time_scenario()))
+                        & (df["region"].isin(input.r_time_region()))
+                        & (df["type"].isin(input.r_time_type())),
+                        :,
+                    ]
+                    return df
 
                 @render.download(
                     label="Download plot data", filename="resource_time_data.csv"
                 )
                 def download_r_time_data():
                     yield prep_chart_data(
-                        resource_time_data(),
+                        filtered_r_time_data(),
                         x_var=None,  # input.cap_line_x_var(),
                         col_var=input.r_time_col_var(),
                         row_var=input.r_time_row_var(),
@@ -577,7 +671,7 @@ with ui.nav_panel("Plot resource time series data"):
                     if parsed_file().empty:
                         return None
                     data = prep_chart_data(
-                        resource_time_data(),
+                        filtered_r_time_data(),
                         x_var=None,
                         col_var=input.r_time_col_var(),
                         row_var=input.r_time_row_var(),
@@ -602,7 +696,7 @@ with ui.nav_panel("Plot resource time series data"):
                 @render.data_frame
                 def show_r_time_df():
                     data = prep_chart_data(
-                        resource_time_data(),
+                        filtered_r_time_data(),
                         x_var=None,
                         col_var=input.r_time_col_var(),
                         row_var=input.r_time_row_var(),
