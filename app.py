@@ -525,16 +525,8 @@ with ui.nav_panel("Plot resource cap data"):
 
                 @render.data_frame
                 def show_r_cap_df():
-                    df = resource_cap_data()
-                    df = df.loc[
-                        (df["year"].isin(input.r_cap_year()))
-                        & (df["scenario"].isin(input.r_cap_scenario()))
-                        & (df["region"].isin(input.r_cap_region()))
-                        & (df["type"].isin(input.r_cap_type())),
-                        :,
-                    ]
                     data = prep_chart_data(
-                        df,
+                        filtered_r_cap_data(),
                         x_var=input.r_cap_x_var(),
                         col_var=input.r_cap_col_var(),
                         row_var=input.r_cap_row_var(),
