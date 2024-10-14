@@ -7,184 +7,17 @@ from shiny import reactive
 from shiny.express import input, render, ui
 from shiny.types import FileInfo
 from shiny.ui import page_navbar
+from shinyswatch import theme
 from shinywidgets import render_altair, render_widget
 
-
-def var_to_none(var):
-    if var == "None":
-        return None
-    return var
-
-
-def title_case(s: str) -> str:
-    if isinstance(s, str):
-        return s.replace("_", " ").title()
-
-
-def config_chart_row_col(
-    chart: alt.Chart,
-    row_var: str,
-    col_var: str,
-    strokeDash: str = None,
-    shape: str = None,
-) -> alt.Chart:
-    if strokeDash is not None:
-        chart = chart.encode(strokeDash=strokeDash)
-    if shape is not None:
-        chart = chart.encode(shape=shape)
-    if col_var is not None and row_var is not None:
-        chart = chart.facet(
-            column=alt.Column(col_var)
-            # .sort(order_dict().get(col_var))
-            # .title(title_case(col_var))
-            .header(titleFontSize=20, labelFontSize=15),
-            row=alt.Row(row_var)
-            # .sort(order_dict().get(row_var))
-            # .title(title_case(row_var))
-            .header(titleFontSize=20, labelFontSize=15),
-        )
-    elif col_var is not None:
-        chart = chart.facet(
-            column=alt.Column(col_var)
-            # .sort(order_dict().get(col_var))
-            # .title(title_case(col_var))
-            .header(titleFontSize=20, labelFontSize=15)
-        )
-    elif row_var is not None:
-        chart = chart.facet(
-            row=alt.Row(row_var)
-            # .sort(order_dict().get(row_var))
-            # .title(title_case(row_var))
-            .header(titleFontSize=20, labelFontSize=15)
-        )
-    chart = chart.configure_axis(labelFontSize=15, titleFontSize=15).configure_legend(
-        titleFontSize=20, labelFontSize=16
-    )
-    if "case" in [row_var, col_var]:
-        chart = (
-            chart.configure(lineBreak="\n")
-            .configure_axis(labelFontSize=15, titleFontSize=15)
-            .configure_legend(titleFontSize=20, labelFontSize=16)
-        )
-    return chart
-
-
-def fill_idx(df: pd.DataFrame, cols) -> pd.DataFrame:
-    midx = pd.MultiIndex.from_product([df[c].unique() for c in cols], names=cols)
-    df = df.set_index(cols)
-    df = df.reindex(midx, fill_value=0)
-    return df.reset_index()
-
-
-def prep_chart_data(
-    df: pd.DataFrame,
-    x_var="planning_year",
-    col_var="tech_type",
-    row_var="case",
-    color="model",
-    dash="None",
-    shape="None",
-    cap_types=None,
-    avg_by=None,
-):
-    x_var = var_to_none(x_var)
-    col_var = var_to_none(col_var)
-    row_var = var_to_none(row_var)
-    shape = var_to_none(shape)
-    dash = var_to_none(dash)
-    color = var_to_none(color)
-
-    if "capacity_type" in df.columns and cap_types is not None:
-        df = df.loc[df["capacity_type"].isin(cap_types), :]
-
-    group_by = [
-        var
-        for var in [x_var, col_var, row_var, color, shape, dash]
-        if var is not None and var in df.columns
-    ]
-
-    if avg_by is None:
-        data = df.groupby(list(set(group_by)), as_index=False, observed=True)[
-            "value"
-        ].sum()
-    else:
-        group_by.append(avg_by)
-        data = df.groupby(list(set(group_by)), as_index=False, observed=True)[
-            "value"
-        ].mean()
-    data = fill_idx(data, list(set(group_by)))
-    return data
-
-
-def chart_total_line(
-    data: pd.DataFrame,
-    x_var="planning_year",
-    col_var="tech_type",
-    row_var="case",
-    color="model",
-    shape=None,
-    dash=None,
-    legend_selection_fields=None,
-    order=None,
-    scale="linear",
-    width=alt.Step(40),
-    height=200,
-) -> alt.Chart:
-    alt.data_transformers.disable_max_rows()
-    alt.renderers.enable("svg")
-    x_var = var_to_none(x_var)
-    col_var = var_to_none(col_var)
-    row_var = var_to_none(row_var)
-    shape = var_to_none(shape)
-    dash = var_to_none(dash)
-    color = var_to_none(color)
-
-    # group_by = []
-    _tooltips = [alt.Tooltip("value")]  # , title="Capacity (GW)", format=",.0f"),
-
-    for var in [x_var, col_var, row_var, color, shape, dash]:
-        if var is not None:
-            _tooltips.append(alt.Tooltip(var))
-
-    # selection_fields = [f for f in legend_selection_fields if f is not None]
-    # selection = alt.selection_point(fields=selection_fields or [], bind="legend")
-
-    lines = (
-        alt.Chart(data)
-        .mark_line(point=dash is None)
-        .encode(
-            x=alt.X(x_var),
-            y=alt.Y("sum(value)"),
-            color=color,
-            tooltip=_tooltips,
-            # opacity=alt.condition(selection, alt.value(0.8), alt.value(0.2)),
-        )
-        # .add_params(selection)
-        .properties(width=width, height=height)
-        # .interactive()
-    )
-    if dash is not None:
-        lines = lines.encode(strokeDash=dash)
-        points = (
-            alt.Chart(data)
-            .mark_point(filled=True)
-            .encode(
-                x=alt.X(x_var),
-                y=alt.Y("sum(value)"),
-                color=alt.Color(color),
-                tooltip=_tooltips,
-                # opacity=alt.condition(selection, alt.value(0.8), alt.value(0.2)),
-            )
-            # .add_params(selection)
-            .properties(width=width, height=height)
-            # .interactive()
-        )
-        chart = lines + points  # .resolve_scale(strokeDash="independent")
-    else:
-        chart = lines
-
-    chart = config_chart_row_col(chart, row_var, col_var)
-    return chart
+from icons import gear_fill
+from plots import (
+    chart_total_bar,
+    chart_total_line,
+    prep_chart_data,
+    title_case,
+    var_to_none,
+)
 
 
 def add_hour_of_day_and_month(df: pd.DataFrame) -> pd.DataFrame:
@@ -239,17 +72,16 @@ def parsed_file():
     return df
 
 
-ui.page_opts(
-    title="Example app",
-    fillable=True,
-)
+ui.page_opts(title="Explore model results", fillable=True, theme=theme.yeti)
 with ui.sidebar(id="user_data_sidebar_left"):
-    ui.input_file(
-        "results_files",
-        "Choose Data File(s)",
-        accept=[".csv", ".gz", ".parquet"],
-        multiple=True,
-    )
+    with ui.tooltip(id="upload_tooltip"):
+        ui.input_file(
+            "results_files",
+            "Choose Data File(s)",
+            accept=[".csv", ".gz", ".parquet"],
+            multiple=True,
+        )
+        "Select one or more data files. All files must be selected at the same time."
 
 
 @reactive.calc
@@ -360,91 +192,10 @@ def r_time_values():
     return values
 
 
-with ui.nav_panel("Plot resource cap data"):
+with ui.nav_panel("Resource capacity"):
     with ui.layout_sidebar():
         with ui.sidebar():
-
-            ui.input_selectize(
-                "r_cap_x_var",
-                "X variable",
-                choices=[
-                    "year",
-                    "model",
-                    "scenario",
-                    "region",
-                    "variable",
-                    "type",
-                    "capacity_type",
-                    "None",
-                ],
-                selected="year",
-                width="125px",
-            )
-
-            ui.input_selectize(
-                "r_cap_col_var",
-                "Column",
-                choices=[
-                    "year",
-                    "model",
-                    "scenario",
-                    "region",
-                    "variable",
-                    "type",
-                    "capacity_type",
-                    "None",
-                ],
-                selected="scenario",
-                width="125px",
-            )
-            ui.input_selectize(
-                "r_cap_row_var",
-                "Row",
-                choices=[
-                    "year",
-                    "model",
-                    "scenario",
-                    "region",
-                    "variable",
-                    "type",
-                    "capacity_type",
-                    "None",
-                ],
-                selected="region",
-                width="150px",
-            )
-            ui.input_selectize(
-                "r_cap_color",
-                "Color",
-                choices=[
-                    "year",
-                    "model",
-                    "scenario",
-                    "region",
-                    "variable",
-                    "type",
-                    "capacity_type",
-                    "None",
-                ],
-                selected="type",
-                width="125px",
-            )
-            ui.input_selectize(
-                "r_cap_dash",
-                "Line dash",
-                choices=[
-                    "year",
-                    "model",
-                    "scenario",
-                    "region",
-                    "variable",
-                    "type",
-                    "capacity_type",
-                    "None",
-                ],
-                selected="capacity_type",
-                width="125px",
-            )
+            "Filter data"
 
             @render.ui
             def r_calc_filters():
@@ -462,35 +213,125 @@ with ui.nav_panel("Plot resource cap data"):
                         )
                     return filters
 
+            @reactive.calc
+            def filtered_r_cap_data():
+                df = resource_cap_data()
+                df = df.loc[
+                    (df["year"].isin(input.r_cap_year()))
+                    & (df["scenario"].isin(input.r_cap_scenario()))
+                    & (df["region"].isin(input.r_cap_region()))
+                    & (df["capacity_type"].isin(input.r_cap_capacity_type()))
+                    & (df["type"].isin(input.r_cap_type())),
+                    :,
+                ]
+                return df
+
         with ui.navset_card_pill(id="r_cap"):
-            with ui.nav_panel("Plot"):
+            with ui.nav_panel("Line plot"):
+                "Select chart variables"
+                with ui.popover(placement="right", id="cap_line_vars"):
+                    ui.p(
+                        gear_fill,
+                        style="position:absolute; top: 73px; left: 185px;",
+                    )
 
-                @reactive.calc
-                def filtered_r_cap_data():
-                    df = resource_cap_data()
-                    df = df.loc[
-                        (df["year"].isin(input.r_cap_year()))
-                        & (df["scenario"].isin(input.r_cap_scenario()))
-                        & (df["region"].isin(input.r_cap_region()))
-                        & (df["capacity_type"].isin(input.r_cap_capacity_type()))
-                        & (df["type"].isin(input.r_cap_type())),
-                        :,
-                    ]
-                    return df
+                    # "Change plot variables"
+                    ui.input_selectize(
+                        "r_cap_x_var",
+                        "X variable",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="year",
+                        width="150px",
+                    )
 
-                @render.download(
-                    label="Download plot data", filename="resource_capacity_data.csv"
-                )
-                def download_data():
-                    yield prep_chart_data(
-                        filtered_r_cap_data(),
-                        x_var=input.r_cap_x_var(),  # input.cap_line_x_var(),
-                        col_var=input.r_cap_col_var(),
-                        row_var=input.r_cap_row_var(),
-                        color=input.r_cap_color(),
-                        dash=input.r_cap_dash(),
-                        cap_types=input.r_cap_type(),
-                    ).to_csv()
+                    ui.input_selectize(
+                        "r_cap_col_var",
+                        "Column",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="scenario",
+                        width="150px",
+                    )
+                    ui.input_selectize(
+                        "r_cap_row_var",
+                        "Row",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="region",
+                        width="150px",
+                    )
+                    ui.input_selectize(
+                        "r_cap_color",
+                        "Color",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="type",
+                        width="150px",
+                    )
+                    ui.input_selectize(
+                        "r_cap_dash",
+                        "Line dash",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="capacity_type",
+                        width="150px",
+                    )
+
+                    @render.download(
+                        label="Download plot data",
+                        filename="resource_capacity_line_data.csv",
+                    )
+                    def download_r_cap_line_data():
+                        yield prep_chart_data(
+                            filtered_r_cap_data(),
+                            x_var=input.r_cap_x_var(),  # input.cap_line_x_var(),
+                            col_var=input.r_cap_col_var(),
+                            row_var=input.r_cap_row_var(),
+                            color=input.r_cap_color(),
+                            dash=input.r_cap_dash(),
+                            cap_types=input.r_cap_type(),
+                        ).to_csv()
 
                 @render_altair
                 def alt_cap_lines():
@@ -521,23 +362,140 @@ with ui.nav_panel("Plot resource cap data"):
                     )
                     return chart
 
+            with ui.nav_panel("Bar plot"):
+                "Select chart variables"
+                with ui.popover(placement="right", id="cap_bar_vars"):
+                    ui.p(
+                        gear_fill,
+                        style="position:absolute; top: 73px; left: 185px;",
+                    )
+
+                    # "Change plot variables"
+                    ui.input_selectize(
+                        "r_cap_bar_x_var",
+                        "X variable",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="scenario",
+                        width="150px",
+                    )
+
+                    ui.input_selectize(
+                        "r_cap_bar_col_var",
+                        "Column",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="year",
+                        width="150px",
+                    )
+                    ui.input_selectize(
+                        "r_cap_bar_row_var",
+                        "Row",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="region",
+                        width="150px",
+                    )
+                    ui.input_selectize(
+                        "r_cap_bar_color",
+                        "Color",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="type",
+                        width="150px",
+                    )
+
+                    @render.download(
+                        label="Download plot data",
+                        filename="resource_capacity_bar_data.csv",
+                    )
+                    def download_r_cap_bar_data():
+                        yield prep_chart_data(
+                            filtered_r_cap_data(),
+                            x_var=input.r_cap_bar_x_var(),  # input.cap_line_x_var(),
+                            col_var=input.r_cap_bar_col_var(),
+                            row_var=input.r_cap_bar_row_var(),
+                            color=input.r_cap_bar_color(),
+                            cap_types=input.r_cap_type(),
+                            # opacity=input.r_cap_bar_opacity(),
+                        ).to_csv()
+
+                @render_altair
+                def alt_cap_bars():
+                    if parsed_file().empty:
+                        return None
+                    data = prep_chart_data(
+                        filtered_r_cap_data(),
+                        x_var=input.r_cap_bar_x_var(),
+                        col_var=input.r_cap_bar_col_var(),
+                        row_var=input.r_cap_bar_row_var(),
+                        color=input.r_cap_bar_color(),
+                        # opacity=input.r_cap_bar_opacity(),
+                    )
+                    chart = chart_total_bar(
+                        data,
+                        x_var=input.r_cap_bar_x_var(),
+                        col_var=input.r_cap_bar_col_var(),
+                        row_var=input.r_cap_bar_row_var(),
+                        color=input.r_cap_bar_color(),
+                        # opacity=input.r_cap_bar_opacity(),
+                        height=200,  # * (input.cap_line_height() / 100),
+                        width=200,  # * (input.cap_line_width() / 100),
+                        legend_selection_fields=[
+                            input.r_cap_bar_color(),
+                        ],
+                    )
+                    return chart
+
             with ui.nav_panel("Table"):
 
                 @render.data_frame
                 def show_r_cap_df():
-                    data = prep_chart_data(
-                        filtered_r_cap_data(),
-                        x_var=input.r_cap_x_var(),
-                        col_var=input.r_cap_col_var(),
-                        row_var=input.r_cap_row_var(),
-                        color=input.r_cap_color(),
-                        dash=input.r_cap_dash(),
-                        # cap_types=input.r_cap_type(),
-                    )
-                    return render.DataTable(data, filters=True)
+                    # data = prep_chart_data(
+                    #     filtered_r_cap_data(),
+                    #     x_var=input.r_cap_x_var(),
+                    #     col_var=input.r_cap_col_var(),
+                    #     row_var=input.r_cap_row_var(),
+                    #     color=input.r_cap_color(),
+                    #     dash=input.r_cap_dash(),
+                    #     # cap_types=input.r_cap_type(),
+                    # )
+                    return render.DataTable(filtered_r_cap_data(), filters=True)
 
 
-with ui.nav_panel("Plot resource time series data"):
+with ui.nav_panel("Resource time series"):
     with ui.layout_sidebar():
         with ui.sidebar():
             ui.input_selectize(
