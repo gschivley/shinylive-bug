@@ -3,3 +3,4 @@ anywidget
 palmerpenguins
 jsonschema
 fastparquet
+shinyswatch
