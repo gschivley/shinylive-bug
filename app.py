@@ -228,11 +228,9 @@ with ui.nav_panel("Resource capacity"):
 
         with ui.navset_card_pill(id="r_cap"):
             with ui.nav_panel("Line plot"):
-                "Select chart variables"
                 with ui.popover(placement="right", id="cap_line_vars"):
-                    ui.p(
-                        gear_fill,
-                        style="position:absolute; top: 73px; left: 185px;",
+                    ui.input_action_button(
+                        "btn", "Select chart variables", width="200px", class_="mt-3"
                     )
 
                     # "Change plot variables"
