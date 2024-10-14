@@ -483,6 +483,8 @@ with ui.nav_panel("Resource capacity"):
 
                 @render.data_frame
                 def show_r_cap_df():
+                    if parsed_file().empty:
+                        return None
                     # data = prep_chart_data(
                     #     filtered_r_cap_data(),
                     #     x_var=input.r_cap_x_var(),
