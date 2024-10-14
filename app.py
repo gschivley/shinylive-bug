@@ -74,6 +74,17 @@ def parsed_file():
 
 ui.page_opts(title="Explore model results", fillable=True, theme=theme.yeti)
 with ui.sidebar(id="user_data_sidebar_left"):
+    ui.p("This space could contain descriptions of how to use the dashboard.")
+
+    ui.p(
+        "Select your data files. Within each page of the dashboard you can filter the inputs."
+    )
+
+    ui.p("A top-level set of filters could also be included in this sidebar.")
+
+    ui.p(
+        "All of this could also go on a separate page rather than being a collapsible sidebar."
+    )
     with ui.tooltip(id="upload_tooltip"):
         ui.input_file(
             "results_files",
