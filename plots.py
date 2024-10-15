@@ -1,5 +1,8 @@
 import altair as alt
 import pandas as pd
+from altair.utils import Undefined
+from shiny.express import module, render, ui
+from shinywidgets import render_altair
 
 
 def var_to_none(var):
@@ -176,6 +179,80 @@ def chart_total_line(
         chart = lines + points  # .resolve_scale(strokeDash="independent")
     else:
         chart = lines
+
+    chart = config_chart_row_col(chart, row_var, col_var)
+    return chart
+
+
+def chart_error_line(
+    data: pd.DataFrame,
+    x_var="planning_year",
+    col_var="tech_type",
+    row_var="case",
+    color="model",
+    shape=None,
+    dash=None,
+    errorband="stderr",
+    legend_selection_fields=None,
+    order=None,
+    scale="linear",
+    width=alt.Step(40),
+    height=200,
+) -> alt.Chart:
+    alt.data_transformers.disable_max_rows()
+    alt.renderers.enable("svg")
+    x_var = var_to_none(x_var)
+    col_var = var_to_none(col_var)
+    row_var = var_to_none(row_var)
+    shape = var_to_none(shape)
+    dash = var_to_none(dash)
+    color = var_to_none(color)
+
+    # group_by = []
+    _tooltips = [alt.Tooltip("value")]  # , title="Capacity (GW)", format=",.0f"),
+
+    for var in [x_var, col_var, row_var, color, shape, dash]:
+        if var is not None:
+            _tooltips.append(alt.Tooltip(var))
+
+    # selection_fields = [f for f in legend_selection_fields if f is not None]
+    # selection = alt.selection_point(fields=selection_fields or [], bind="legend")
+
+    lines = (
+        alt.Chart(data)
+        .mark_line(point=dash is None)
+        .encode(
+            x=alt.X(x_var),
+            y=alt.Y("value"),
+            color=color,
+            tooltip=_tooltips,
+            # opacity=alt.condition(selection, alt.value(0.8), alt.value(0.2)),
+        )
+        # .add_params(selection)
+        .properties(width=width, height=height)
+        # .interactive()
+    )
+    _tooltips.extend(
+        [
+            alt.Tooltip("high_value"),
+            alt.Tooltip("low_value"),
+        ]
+    )
+    band = (
+        alt.Chart(data)
+        .mark_errorband(borders=True)
+        .encode(
+            x=alt.X(x_var),
+            # y=alt.Y("value"),
+            y=alt.Y("high_value"),
+            y2=alt.Y2("low_value"),
+            color=alt.Color(color),
+            tooltip=_tooltips,
+        )
+    )
+    # if dash is not None:
+    #     band.encode(strokeDash=dash)
+    chart = lines + band
 
     chart = config_chart_row_col(chart, row_var, col_var)
     return chart

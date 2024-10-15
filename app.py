@@ -2,9 +2,10 @@ from pathlib import Path
 
 import altair as alt
 import anywidget
+import numpy as np
 import pandas as pd
 from shiny import reactive
-from shiny.express import input, render, ui
+from shiny.express import input, module, render, ui
 from shiny.types import FileInfo
 from shiny.ui import page_navbar
 from shinyswatch import theme
@@ -12,6 +13,7 @@ from shinywidgets import render_altair, render_widget
 
 from icons import gear_fill
 from plots import (
+    chart_error_line,
     chart_total_bar,
     chart_total_line,
     prep_chart_data,
@@ -241,7 +243,10 @@ with ui.nav_panel("Resource capacity"):
             with ui.nav_panel("Line plot"):
                 with ui.popover(placement="right", id="cap_line_vars"):
                     ui.input_action_button(
-                        "btn", "Select chart variables", width="200px", class_="mt-3"
+                        "r_cap_line_vars",
+                        "Select chart variables",
+                        width="200px",
+                        class_="mt-3",
                     )
 
                     # "Change plot variables"
@@ -509,77 +514,77 @@ with ui.nav_panel("Resource capacity"):
 with ui.nav_panel("Resource time series"):
     with ui.layout_sidebar():
         with ui.sidebar():
-            ui.input_selectize(
-                "r_time_col_var",
-                "Column",
-                choices=[
-                    "year",
-                    "model",
-                    "scenario",
-                    "region",
-                    "variable",
-                    "type",
-                    "capacity_type",
-                    "None",
-                ],
-                selected="scenario",
-                width="125px",
-            )
-            ui.input_selectize(
-                "r_time_row_var",
-                "Row",
-                choices=[
-                    "year",
-                    "model",
-                    "scenario",
-                    "region",
-                    "variable",
-                    "type",
-                    "capacity_type",
-                    "None",
-                ],
-                selected="region",
-                width="150px",
-            )
-            ui.input_selectize(
-                "r_time_color",
-                "Color",
-                choices=[
-                    "year",
-                    "model",
-                    "scenario",
-                    "region",
-                    "variable",
-                    "type",
-                    "capacity_type",
-                    "None",
-                ],
-                selected="type",
-                width="125px",
-            )
-            ui.input_selectize(
-                "r_time_dash",
-                "Line dash",
-                choices=[
-                    "year",
-                    "model",
-                    "scenario",
-                    "region",
-                    "variable",
-                    "type",
-                    "capacity_type",
-                    "None",
-                ],
-                selected="year",
-                width="125px",
-            )
-            ui.input_selectize(
-                "r_time_avg",
-                "Average by time",
-                choices=["hour_of_day", "month"],
-                selected="hour_of_day",
-                width="125px",
-            )
+            # ui.input_selectize(
+            #     "r_time_col_var",
+            #     "Column",
+            #     choices=[
+            #         "year",
+            #         "model",
+            #         "scenario",
+            #         "region",
+            #         "variable",
+            #         "type",
+            #         "capacity_type",
+            #         "None",
+            #     ],
+            #     selected="scenario",
+            #     width="125px",
+            # )
+            # ui.input_selectize(
+            #     "r_time_row_var",
+            #     "Row",
+            #     choices=[
+            #         "year",
+            #         "model",
+            #         "scenario",
+            #         "region",
+            #         "variable",
+            #         "type",
+            #         "capacity_type",
+            #         "None",
+            #     ],
+            #     selected="region",
+            #     width="150px",
+            # )
+            # ui.input_selectize(
+            #     "r_time_color",
+            #     "Color",
+            #     choices=[
+            #         "year",
+            #         "model",
+            #         "scenario",
+            #         "region",
+            #         "variable",
+            #         "type",
+            #         "capacity_type",
+            #         "None",
+            #     ],
+            #     selected="type",
+            #     width="125px",
+            # )
+            # ui.input_selectize(
+            #     "r_time_dash",
+            #     "Line dash",
+            #     choices=[
+            #         "year",
+            #         "model",
+            #         "scenario",
+            #         "region",
+            #         "variable",
+            #         "type",
+            #         "capacity_type",
+            #         "None",
+            #     ],
+            #     selected="year",
+            #     width="125px",
+            # )
+            # ui.input_selectize(
+            #     "r_time_avg",
+            #     "Average by time",
+            #     choices=["hour_of_day", "month"],
+            #     selected="hour_of_day",
+            #     width="125px",
+            # )
 
             @render.ui
             def r_time_filters():
@@ -599,6 +604,99 @@ with ui.nav_panel("Resource time series"):
 
         with ui.navset_card_pill(id="r_time"):
             with ui.nav_panel("Plot"):
+                with ui.popover(placement="right", id="r_time_vars"):
+                    ui.input_action_button(
+                        "r_time_line_vars",
+                        "Select chart variables",
+                        width="200px",
+                        class_="mt-3",
+                    )
+                    ui.input_selectize(
+                        "r_time_col_var",
+                        "Column",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="scenario",
+                        width="125px",
+                    )
+                    ui.input_selectize(
+                        "r_time_row_var",
+                        "Row",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="region",
+                        width="150px",
+                    )
+                    ui.input_selectize(
+                        "r_time_color",
+                        "Color",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="type",
+                        width="125px",
+                    )
+                    ui.input_selectize(
+                        "r_time_dash",
+                        "Line dash",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="year",
+                        width="125px",
+                    )
+                    ui.input_selectize(
+                        "r_time_avg",
+                        "Average by time",
+                        choices=["hour_of_day", "month"],
+                        selected="hour_of_day",
+                        width="125px",
+                    )
+
+                    @render.download(
+                        label="Download plot data", filename="resource_time_data.csv"
+                    )
+                    def download_r_time_data():
+                        yield prep_chart_data(
+                            filtered_r_time_data(),
+                            x_var=None,  # input.cap_line_x_var(),
+                            col_var=input.r_time_col_var(),
+                            row_var=input.r_time_row_var(),
+                            color=input.r_time_color(),
+                            dash=input.r_time_dash(),
+                            cap_types=input.r_time_type(),
+                            avg_by=input.r_time_avg(),
+                        ).to_csv()
 
                 @reactive.calc
                 def filtered_r_time_data():
@@ -612,20 +710,54 @@ with ui.nav_panel("Resource time series"):
                     ]
                     return df
 
-                @render.download(
-                    label="Download plot data", filename="resource_time_data.csv"
-                )
-                def download_r_time_data():
-                    yield prep_chart_data(
-                        filtered_r_time_data(),
-                        x_var=None,  # input.cap_line_x_var(),
-                        col_var=input.r_time_col_var(),
-                        row_var=input.r_time_row_var(),
-                        color=input.r_time_color(),
-                        dash=input.r_time_dash(),
-                        cap_types=input.r_time_type(),
-                        avg_by=input.r_time_avg(),
-                    ).to_csv()
+                def calculate_statistics(
+                    df: pd.DataFrame,
+                    error_method: str = "iqr",
+                    x_var="planning_year",
+                    col_var="tech_type",
+                    row_var="case",
+                    color="model",
+                ):
+                    x_var = var_to_none(x_var)
+                    col_var = var_to_none(col_var)
+                    row_var = var_to_none(row_var)
+                    color = var_to_none(color)
+
+                    by = []
+                    for var in [x_var, col_var, row_var, color]:
+                        if var is not None and var not in by:
+                            by.append(var)
+
+                    # Grouping by scenario, region, type, and hour of day
+                    grouped = df.groupby(by, observed=True)
+
+                    if error_method == "iqr":
+                        # Calculate average, IQR-based lower and upper bound
+                        stats = grouped["value"].agg(
+                            value=("mean"),
+                            low_value=lambda x: np.percentile(x, 25),
+                            high_value=lambda x: np.percentile(x, 75),
+                        )
+                    elif error_method == "std":
+                        # Calculate average, std deviation-based lower and upper bound
+                        stats = grouped["value"].agg(
+                            value=("mean"),
+                            low_value=lambda x: x.mean() - x.std(),
+                            high_value=lambda x: x.mean() + x.std(),
+                        )
+                    elif error_method == "stderr":
+                        # Calculate average, standard error-based lower and upper bound
+                        stats = grouped["value"].agg(
+                            value=("mean"),
+                            low_value=lambda x: x.mean() - x.sem(),
+                            high_value=lambda x: x.mean() + x.sem(),
+                        )
+                    else:
+                        raise ValueError(
+                            "Invalid error_method. Choose 'iqr', 'std', or 'stderr'."
+                        )
+
+                    return stats.reset_index()
 
                 @render_altair
                 def alt_r_time_lines():
@@ -647,6 +779,113 @@ with ui.nav_panel("Resource time series"):
                         row_var=input.r_time_row_var(),
                         color=input.r_time_color(),
                         dash=input.r_time_dash(),
+                        height=200,  # * (input.cap_line_height() / 100),
+                        width=200,  # * (input.cap_line_width() / 100),
+                    )
+                    return chart
+
+            with ui.nav_panel("Errobar plot"):
+                with ui.popover(placement="right", id="r_time_err_vars"):
+                    ui.input_action_button(
+                        "r_time_err_line_vars",
+                        "Select chart variables",
+                        width="200px",
+                        class_="mt-3",
+                    )
+                    ui.input_selectize(
+                        "r_time_err_col_var",
+                        "Column",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "None",
+                        ],
+                        selected="year",
+                        width="125px",
+                    )
+                    ui.input_selectize(
+                        "r_time_err_row_var",
+                        "Row",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "None",
+                        ],
+                        selected="region",
+                        width="150px",
+                    )
+                    ui.input_selectize(
+                        "r_time_err_color",
+                        "Color",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "None",
+                        ],
+                        selected="type",
+                        width="125px",
+                    )
+                    ui.input_selectize(
+                        "r_time_err_avg",
+                        "Average by time",
+                        choices=["hour_of_day", "month"],
+                        selected="hour_of_day",
+                        width="125px",
+                    )
+                    ui.input_selectize(
+                        "r_time_err_method",
+                        "Error method",
+                        choices=["stderr", "std", "iqr"],
+                        selected="stderr",
+                        width="125px",
+                    )
+
+                    @render.download(
+                        label="Download plot data",
+                        filename="resource_time_error_data.csv",
+                    )
+                    def download_r_time_err_data():
+                        yield calculate_statistics(
+                            filtered_r_time_data(),
+                            error_method=input.r_time_err_method(),
+                            x_var=input.r_time_err_avg(),
+                            col_var=input.r_time_err_col_var(),
+                            row_var=input.r_time_err_row_var(),
+                            color=input.r_time_err_color(),
+                        ).to_csv()
+
+                @render_altair
+                def alt_r_time_err_errorband():
+                    if parsed_file().empty:
+                        return None
+                    data = calculate_statistics(
+                        filtered_r_time_data(),
+                        error_method=input.r_time_err_method(),
+                        x_var=input.r_time_err_avg(),
+                        col_var=input.r_time_err_col_var(),
+                        row_var=input.r_time_err_row_var(),
+                        color=input.r_time_err_color(),
+                    )
+                    chart = chart_error_line(
+                        # filtered_r_time_err_data(),
+                        data,
+                        x_var=input.r_time_err_avg(),
+                        col_var=input.r_time_err_col_var(),
+                        row_var=input.r_time_err_row_var(),
+                        color=input.r_time_err_color(),
+                        # dash=input.r_time_err_dash(),
                         height=200,  # * (input.cap_line_height() / 100),
                         width=200,  # * (input.cap_line_width() / 100),
                     )
