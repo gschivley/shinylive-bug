@@ -121,6 +121,10 @@ def chart_total_line(
     color="model",
     shape=None,
     dash=None,
+    points=True,
+    interactive_zoom=False,
+    interpolate="linear",
+    tension=0.75,
     legend_selection_fields=None,
     order=None,
     scale="linear",
@@ -146,9 +150,11 @@ def chart_total_line(
     # selection_fields = [f for f in legend_selection_fields if f is not None]
     # selection = alt.selection_point(fields=selection_fields or [], bind="legend")
 
-    lines = (
+    chart = (
         alt.Chart(data)
-        .mark_line(point=dash is None)
+        .mark_line(
+            point=dash is None and points, interpolate=interpolate, tension=tension
+        )
         .encode(
             x=alt.X(x_var),
             y=alt.Y("sum(value)"),
@@ -161,25 +167,25 @@ def chart_total_line(
         # .interactive()
     )
     if dash is not None:
-        lines = lines.encode(strokeDash=dash)
-        points = (
-            alt.Chart(data)
-            .mark_point(filled=True)
-            .encode(
-                x=alt.X(x_var),
-                y=alt.Y("sum(value)"),
-                color=alt.Color(color),
-                tooltip=_tooltips,
-                # opacity=alt.condition(selection, alt.value(0.8), alt.value(0.2)),
+        chart = chart.encode(strokeDash=dash)
+        if points:
+            points_chart = (
+                alt.Chart(data)
+                .mark_point(filled=True)
+                .encode(
+                    x=alt.X(x_var),
+                    y=alt.Y("sum(value)"),
+                    color=alt.Color(color),
+                    tooltip=_tooltips,
+                    # opacity=alt.condition(selection, alt.value(0.8), alt.value(0.2)),
+                )
+                # .add_params(selection)
+                .properties(width=width, height=height)
+                # .interactive()
             )
-            # .add_params(selection)
-            .properties(width=width, height=height)
-            # .interactive()
-        )
-        chart = lines + points  # .resolve_scale(strokeDash="independent")
-    else:
-        chart = lines
-
+            chart = chart + points_chart  # .resolve_scale(strokeDash="independent")
+    if interactive_zoom:
+        chart = chart.interactive(bind_y=False)
     chart = config_chart_row_col(chart, row_var, col_var)
     return chart
 
@@ -254,6 +260,56 @@ def chart_error_line(
     #     band.encode(strokeDash=dash)
     chart = lines + band
 
+    chart = config_chart_row_col(chart, row_var, col_var)
+    return chart
+
+
+def chart_total_stacked_area(
+    data: pd.DataFrame,
+    x_var="planning_year",
+    col_var="tech_type",
+    row_var="case",
+    color="model",
+    interactive_zoom=False,
+    legend_selection_fields=None,
+    order=None,
+    scale="linear",
+    width=alt.Step(40),
+    height=200,
+) -> alt.Chart:
+    alt.data_transformers.disable_max_rows()
+    alt.renderers.enable("svg")
+    x_var = var_to_none(x_var)
+    col_var = var_to_none(col_var)
+    row_var = var_to_none(row_var)
+    color = var_to_none(color)
+
+    # group_by = []
+    _tooltips = [alt.Tooltip("value")]  # , title="Capacity (GW)", format=",.0f"),
+
+    for var in [x_var, col_var, row_var, color]:
+        if var is not None:
+            _tooltips.append(alt.Tooltip(var))
+
+    # selection_fields = [f for f in legend_selection_fields if f is not None]
+    # selection = alt.selection_point(fields=selection_fields or [], bind="legend")
+
+    chart = (
+        alt.Chart(data)
+        .mark_area()
+        .encode(
+            x=alt.X(x_var),
+            y=alt.Y("sum(value)"),
+            color=color,
+            tooltip=_tooltips,
+            # opacity=alt.condition(selection, alt.value(0.8), alt.value(0.2)),
+        )
+        # .add_params(selection)
+        .properties(width=width, height=height)
+        # .interactive()
+    )
+    if interactive_zoom:
+        chart = chart.interactive(bind_y=False)
     chart = config_chart_row_col(chart, row_var, col_var)
     return chart
 

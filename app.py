@@ -16,6 +16,7 @@ from plots import (
     chart_error_line,
     chart_total_bar,
     chart_total_line,
+    chart_total_stacked_area,
     prep_chart_data,
     title_case,
     var_to_none,
@@ -603,7 +604,7 @@ with ui.nav_panel("Resource time series"):
                     return filters
 
         with ui.navset_card_pill(id="r_time"):
-            with ui.nav_panel("Plot"):
+            with ui.nav_panel("Average plot"):
                 with ui.popover(placement="right", id="r_time_vars"):
                     ui.input_action_button(
                         "r_time_line_vars",
@@ -694,7 +695,6 @@ with ui.nav_panel("Resource time series"):
                             row_var=input.r_time_row_var(),
                             color=input.r_time_color(),
                             dash=input.r_time_dash(),
-                            cap_types=input.r_time_type(),
                             avg_by=input.r_time_avg(),
                         ).to_csv()
 
@@ -889,6 +889,152 @@ with ui.nav_panel("Resource time series"):
                         height=200,  # * (input.cap_line_height() / 100),
                         width=200,  # * (input.cap_line_width() / 100),
                     )
+                    return chart
+
+            with ui.nav_panel("Hourly plot"):
+                with ui.popover(placement="right", id="r_time_hourly_vars"):
+                    ui.input_action_button(
+                        "r_time_hourly_line_vars",
+                        "Select chart variables",
+                        width="200px",
+                        class_="mt-3",
+                    )
+                    ui.input_selectize(
+                        "r_time_hourly_chart_type",
+                        "Chart type",
+                        choices=["line", "stacked area"],
+                        selected="line",
+                        width="125px",
+                    )
+                    ui.input_selectize(
+                        "r_time_hourly_col_var",
+                        "Column",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="scenario",
+                        width="125px",
+                    )
+                    ui.input_selectize(
+                        "r_time_hourly_row_var",
+                        "Row",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="region",
+                        width="150px",
+                    )
+                    ui.input_selectize(
+                        "r_time_hourly_color",
+                        "Color",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="type",
+                        width="125px",
+                    )
+                    ui.input_selectize(
+                        "r_time_hourly_dash",
+                        "Line dash",
+                        choices=[
+                            "year",
+                            "model",
+                            "scenario",
+                            "region",
+                            "variable",
+                            "type",
+                            "capacity_type",
+                            "None",
+                        ],
+                        selected="None",
+                        width="125px",
+                    )
+
+                    @render.download(
+                        label="Download plot data",
+                        filename="resource_time_hourly_data.csv",
+                    )
+                    def download_r_time_hourly_data():
+                        month = input.r_time_hourly_month()
+                        yield prep_chart_data(
+                            filtered_r_time_data(),
+                            x_var="time",  # input.cap_line_x_var(),
+                            col_var=input.r_time_hourly_col_var(),
+                            row_var=input.r_time_hourly_row_var(),
+                            color=input.r_time_hourly_color(),
+                            dash=input.r_time_hourly_dash(),
+                        ).pipe(add_hour_of_day_and_month).query(
+                            "month==@month"
+                        ).to_csv()
+
+                # @render.ui
+                # def r_time_hourly_filter():
+                ui.input_slider("r_time_hourly_month", "Month", min=1, max=12, value=1),
+
+                @render_altair
+                def alt_r_time_hourly_lines():
+                    if parsed_file().empty:
+                        return None
+                    month = input.r_time_hourly_month()
+                    data = (
+                        prep_chart_data(
+                            filtered_r_time_data(),
+                            x_var="time",
+                            col_var=input.r_time_hourly_col_var(),
+                            row_var=input.r_time_hourly_row_var(),
+                            color=input.r_time_hourly_color(),
+                            dash=input.r_time_hourly_dash(),
+                        )
+                        .pipe(add_hour_of_day_and_month)
+                        .query("month==@month")
+                    )
+                    if input.r_time_hourly_chart_type() == "line":
+                        chart = chart_total_line(
+                            data,
+                            x_var="time",
+                            col_var=input.r_time_hourly_col_var(),
+                            row_var=input.r_time_hourly_row_var(),
+                            color=input.r_time_hourly_color(),
+                            dash=input.r_time_hourly_dash(),
+                            points=False,
+                            interactive_zoom=True,
+                            # interpolate="cardinal",
+                            # tension=0.75,
+                            height=200,  # * (input.cap_line_height() / 100),
+                            width=400,  # * (input.cap_line_width() / 100),
+                        )
+                    else:
+                        chart = chart_total_stacked_area(
+                            data,
+                            x_var="time",
+                            col_var=input.r_time_hourly_col_var(),
+                            row_var=input.r_time_hourly_row_var(),
+                            color=input.r_time_hourly_color(),
+                            interactive_zoom=True,
+                            height=200,  # * (input.cap_line_height() / 100),
+                            width=400,  # * (input.cap_line_width() / 100),
+                        )
                     return chart
 
             with ui.nav_panel("Table"):
